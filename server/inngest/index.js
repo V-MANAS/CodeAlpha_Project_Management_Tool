@@ -63,7 +63,13 @@ const syncWorkspaceCreation = inngest.createFunction(
   async ({ event }) => {
     const { data } = event;
 
-    // Create workspace WITHOUT owner first
+    // ✅ prevent duplicate creation
+    const existing = await prisma.workspace.findUnique({
+      where: { id: data.id },
+    });
+
+    if (existing) return;
+
     await prisma.workspace.create({
       data: {
         id: data.id,
@@ -73,30 +79,17 @@ const syncWorkspaceCreation = inngest.createFunction(
       },
     });
 
-    // Try attaching owner ONLY if user exists
     if (data.created_by) {
-      const ownerExists = await prisma.user.findUnique({
-        where: { id: data.created_by },
+      await prisma.workspaceMember.create({
+        data: {
+          userId: data.created_by,
+          workspaceId: data.id,
+          role: "ADMIN",
+        },
       });
-
-      if (ownerExists) {
-        await prisma.workspace.update({
-          where: { id: data.id },
-          data: { ownerId: data.created_by },
-        });
-
-        await prisma.workspaceMember.create({
-          data: {
-            userId: data.created_by,
-            workspaceId: data.id,
-            role: "ADMIN",
-          },
-        });
-      }
     }
   }
 );
-
 
 
 
