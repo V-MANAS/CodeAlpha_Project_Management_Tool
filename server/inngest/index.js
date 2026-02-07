@@ -63,7 +63,6 @@ const syncWorkspaceCreation = inngest.createFunction(
   async ({ event }) => {
     const { data } = event;
 
-    // prevent duplicate
     const existing = await prisma.workspace.findUnique({
       where: { id: data.id },
     });
@@ -74,34 +73,23 @@ const syncWorkspaceCreation = inngest.createFunction(
         id: data.id,
         name: data.name,
         slug: data.slug,
-        imageUrl: data.image_url ?? null, // 👈 use correct field name
-
-        // 🔥 THIS IS MANDATORY
-        owner: {
-          connectOrCreate: {
-            where: { id: data.created_by },
-            create: {
-              id: data.created_by,
-            },
-          },
-        },
+        image_url: data.image_url ?? "",
+        ownerId: data.created_by, // ✅ THIS IS THE KEY FIX
       },
     });
 
-    // optional: workspace member
-    if (data.created_by) {
-      await prisma.workspaceMember.create({
-        data: {
-          userId: data.created_by,
-          workspaceId: data.id,
-          role: "ADMIN",
-        },
-      });
-    }
+    await prisma.workspaceMember.create({
+      data: {
+        userId: data.created_by,
+        workspaceId: data.id,
+        role: "ADMIN",
+      },
+    });
 
     return { success: true };
   }
 );
+
 
 
 
