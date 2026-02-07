@@ -63,21 +63,36 @@ const syncWorkspaceCreation = inngest.createFunction(
   async ({ event }) => {
     const { data } = event;
 
+    // ✅ 1. ENSURE USER EXISTS (ADD THIS)
+    await prisma.user.upsert({
+      where: { id: data.created_by },
+      update: {},
+      create: {
+        id: data.created_by,
+        email: `temp_${data.created_by}@clerk.local`,
+        name: "Clerk User",
+        image: "",
+      },
+    });
+
+    // ✅ 2. PREVENT DUPLICATE WORKSPACE
     const existing = await prisma.workspace.findUnique({
       where: { id: data.id },
     });
     if (existing) return { skipped: true };
 
+    // ✅ 3. CREATE WORKSPACE
     await prisma.workspace.create({
       data: {
         id: data.id,
         name: data.name,
         slug: data.slug,
         image_url: data.image_url ?? "",
-        ownerId: data.created_by, // ✅ THIS IS THE KEY FIX
+        ownerId: data.created_by,
       },
     });
 
+    // ✅ 4. CREATE ADMIN MEMBERSHIP
     await prisma.workspaceMember.create({
       data: {
         userId: data.created_by,
@@ -89,6 +104,7 @@ const syncWorkspaceCreation = inngest.createFunction(
     return { success: true };
   }
 );
+
 
 
 
