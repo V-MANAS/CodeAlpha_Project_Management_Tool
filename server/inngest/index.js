@@ -63,22 +63,32 @@ const syncWorkspaceCreation = inngest.createFunction(
   async ({ event }) => {
     const { data } = event;
 
-    // ✅ prevent duplicate creation
+    // prevent duplicate
     const existing = await prisma.workspace.findUnique({
       where: { id: data.id },
     });
-
-    if (existing) return;
+    if (existing) return { skipped: true };
 
     await prisma.workspace.create({
       data: {
         id: data.id,
         name: data.name,
         slug: data.slug,
-        image_url: data.image_url,
+        imageUrl: data.image_url ?? null, // 👈 use correct field name
+
+        // 🔥 THIS IS MANDATORY
+        owner: {
+          connectOrCreate: {
+            where: { id: data.created_by },
+            create: {
+              id: data.created_by,
+            },
+          },
+        },
       },
     });
 
+    // optional: workspace member
     if (data.created_by) {
       await prisma.workspaceMember.create({
         data: {
@@ -88,8 +98,12 @@ const syncWorkspaceCreation = inngest.createFunction(
         },
       });
     }
+
+    return { success: true };
   }
 );
+
+
 
 
 
